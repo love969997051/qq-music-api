@@ -155,6 +155,7 @@ export async function onRequest(context) {
 
         return jsonResponse({
             code: 0,
+            midurlinfo:midurlinfo,
             data: urls,
             quality: actualQuality,
         });
