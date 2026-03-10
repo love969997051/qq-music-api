@@ -71,6 +71,7 @@ export async function onRequest(context) {
         let actualQuality = requestedQuality;
         let urls = {};
         let requestUrl = ""; // 用于存储最后请求的 URL
+        let fullRequestData = {}; // 用于存储完整请求数据
 
         for (const quality of qualityQueue) {
             const fileType = parseQuality(quality);
@@ -106,21 +107,27 @@ export async function onRequest(context) {
             const signature = await generateSign(requestData);
             requestUrl = `${API_CONFIG.endpoint}?sign=${signature}`; // 存储 URL
 
-            const headers = {
-                "Content-Type": "application/json",
-                "Referer": "https://y.qq.com/",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                "Origin": "https://y.qq.com",
+            // 保存完整的请求数据，包括请求的 URL 和请求数据
+            fullRequestData = {
+                url: requestUrl,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Referer": "https://y.qq.com/",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "Origin": "https://y.qq.com",
+                },
+                body: JSON.stringify(requestData),
+                params: requestData,
             };
 
             if (credential) {
-                headers["Cookie"] = buildCookies(credential);
+                fullRequestData.headers["Cookie"] = buildCookies(credential);
             }
 
             const response = await fetch(requestUrl, {
                 method: "POST",
-                headers: headers,
-                body: JSON.stringify(requestData),
+                headers: fullRequestData.headers,
+                body: fullRequestData.body,
             });
 
             const data = await response.json();
@@ -153,7 +160,7 @@ export async function onRequest(context) {
             code: 0,
             data: urls,
             quality: actualQuality,
-            request_url: requestUrl // 返回最后成功请求的 URL
+            request_url: fullRequestData, // 返回完整的请求数据
         });
 
     } catch (err) {
