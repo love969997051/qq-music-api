@@ -157,6 +157,7 @@ export async function onRequest(context) {
             code: 0,
             data: urls,
             quality: actualQuality,
+            request_url: `${API_CONFIG.endpoint}?sign=${signature}`
         });
 
     } catch (err) {
