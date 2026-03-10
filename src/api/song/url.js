@@ -50,7 +50,6 @@ export async function onRequest(context) {
             return errorResponse("Missing required parameter: mid", 400);
         }
 
-        // 支持逗号分隔的多个 MID
         const mids = midParam.split(",").map(m => m.trim()).filter(Boolean);
 
         if (mids.length === 0) {
@@ -64,16 +63,15 @@ export async function onRequest(context) {
         const { API_CONFIG } = await import("../../lib/common.js");
         const { buildCookies } = await import("../../lib/request.js");
 
-        // 构建降级队列：从请求的音质开始
         const startIndex = QUALITY_FALLBACK.indexOf(requestedQuality.toLowerCase());
         const qualityQueue = startIndex >= 0
             ? QUALITY_FALLBACK.slice(startIndex)
-            : QUALITY_FALLBACK; // 如果请求的音质不在列表中，从 flac 开始
+            : QUALITY_FALLBACK;
 
         let actualQuality = requestedQuality;
         let urls = {};
+        let requestUrl = ""; // 用于存储最后请求的 URL
 
-        // 尝试每个音质，直到获取成功
         for (const quality of qualityQueue) {
             const fileType = parseQuality(quality);
             const fileNames = mids.map(mid => `${fileType.s}${mid}${mid}${fileType.e}`);
@@ -106,7 +104,7 @@ export async function onRequest(context) {
             }
 
             const signature = await generateSign(requestData);
-            const apiUrl = `${API_CONFIG.endpoint}?sign=${signature}`;
+            requestUrl = `${API_CONFIG.endpoint}?sign=${signature}`; // 存储 URL
 
             const headers = {
                 "Content-Type": "application/json",
@@ -119,7 +117,7 @@ export async function onRequest(context) {
                 headers["Cookie"] = buildCookies(credential);
             }
 
-            const response = await fetch(apiUrl, {
+            const response = await fetch(requestUrl, {
                 method: "POST",
                 headers: headers,
                 body: JSON.stringify(requestData),
@@ -132,7 +130,6 @@ export async function onRequest(context) {
                 continue; // 尝试下一个音质
             }
 
-            // 解析结果
             const midurlinfo = result.data?.midurlinfo || [];
             let hasValidUrl = false;
 
@@ -146,7 +143,6 @@ export async function onRequest(context) {
                 }
             }
 
-            // 如果有任何有效 URL，使用当前音质
             if (hasValidUrl) {
                 actualQuality = quality;
                 break;
@@ -157,7 +153,7 @@ export async function onRequest(context) {
             code: 0,
             data: urls,
             quality: actualQuality,
-            request_url: `${API_CONFIG.endpoint}?sign=${signature}`
+            request_url: requestUrl // 返回最后成功请求的 URL
         });
 
     } catch (err) {
